@@ -32,6 +32,14 @@ jobs:
           test -d extracted/triply
           echo "PROJECT_DIR=$GITHUB_WORKSPACE/extracted/triply" >> "$GITHUB_ENV"
 
+      - name: Inspect Kotlin compile error context
+        working-directory: extracted/triply
+        run: |
+          echo "===== TripPreparationTab.kt lines 465-510 ====="
+          sed -n '465,510p' app/src/main/java/com/triply/app/feature/preparation/TripPreparationTab.kt
+          echo "===== Matching freshness declarations and values ====="
+          grep -R -n -E 'enum class|sealed (class|interface)|FRESH|STALE|OFFLINE_CACHED|freshness|Freshness' app/src/main/java/com/triply/app | head -240
+
       - name: Run unit tests
         working-directory: extracted/triply
         run: gradle testDebugUnitTest --stacktrace
