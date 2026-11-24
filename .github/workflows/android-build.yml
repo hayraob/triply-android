@@ -32,13 +32,43 @@ jobs:
           test -d extracted/triply
           echo "PROJECT_DIR=$GITHUB_WORKSPACE/extracted/triply" >> "$GITHUB_ENV"
 
-      - name: Inspect Kotlin compile error context
+      - name: Fix nested WeatherFreshness enum references
         working-directory: extracted/triply
         run: |
-          echo "===== TripPreparationTab.kt lines 465-510 ====="
-          sed -n '465,510p' app/src/main/java/com/triply/app/feature/preparation/TripPreparationTab.kt
-          echo "===== Matching freshness declarations and values ====="
-          grep -R -n -E 'enum class|sealed (class|interface)|FRESH|STALE|OFFLINE_CACHED|freshness|Freshness' app/src/main/java/com/triply/app | head -240
+          python3 - <<'PY'
+          from pathlib import Path
+
+          source = Path("app/src/main/java/com/triply/app/feature/preparation/TripPreparationTab.kt")
+          content = source.read_text(encoding="utf-8")
+          replacements = {
+              "WeatherFreshness.FRESH": "WeatherFreshness.FreshnessState.FRESH",
+              "WeatherFreshness.STALE": "WeatherFreshness.FreshnessState.STALE",
+              "WeatherFreshness.OFFLINE_CACHED": "WeatherFreshness.FreshnessState.OFFLINE_CACHED",
+          }
+          for old, new in replacements.items():
+              count = content.count(old)
+              if count == 0:
+                  raise SystemExit(f"Expected reference not found: {old}")
+              content = content.replace(old, new)
+              print(f"Fixed {old} -> {new} ({count} occurrence(s))")
+          source.write_text(content, encoding="utf-8")
+          PY
+
+      - name: Package corrected source archive
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          from zipfile import ZipFile, ZIP_DEFLATED
+
+          project = Path("extracted/triply")
+          excluded = {".gradle", "build", ".git"}
+          with ZipFile("triply-v1-fixed-source.zip", "w", ZIP_DEFLATED) as archive:
+              for path in project.rglob("*"):
+                  if not path.is_file() or any(part in excluded for part in path.relative_to(project).parts):
+                      continue
+                  archive.write(path, Path("triply") / path.relative_to(project))
+          print("Created triply-v1-fixed-source.zip")
+          PY
 
       - name: Run unit tests
         working-directory: extracted/triply
@@ -53,5 +83,13 @@ jobs:
         with:
           name: triply-debug-apk
           path: extracted/triply/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload corrected source archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: triply-fixed-source
+          path: triply-v1-fixed-source.zip
           if-no-files-found: error
           retention-days: 30
