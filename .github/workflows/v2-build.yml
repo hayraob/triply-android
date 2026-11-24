@@ -47,6 +47,11 @@ jobs:
               '                        if (preview.hasTripIdConflict) "Note: Existing trip ID detected; will import as a safe copy." else ""'
           ]
           detail.write_text("\n".join(lines) + "\n")
+          map_screen = root / "ui/screens/MapDiscoveryScreen.kt"
+          text = map_screen.read_text()
+          text = text.replace("centerLat = center?.latitude ?: defaultLat,", "lat = center?.latitude ?: defaultLat,")
+          text = text.replace("centerLon = center?.longitude ?: defaultLon", "lon = center?.longitude ?: defaultLon")
+          map_screen.write_text(text)
           PY
       - name: Set up JDK 17
         uses: actions/setup-java@v4
