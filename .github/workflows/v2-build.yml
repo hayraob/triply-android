@@ -24,6 +24,30 @@ jobs:
           unzip -q triply-v2-android-source.zip -d v2-source
           test -f v2-source/triply-v2/settings.gradle.kts
 
+      - name: Apply verified Kotlin syntax fixes
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          root = Path("v2-source/triply-v2/app/src/main/java/com/triply/app")
+          remote = root / "data/remote/RemoteProviders.kt"
+          lines = remote.read_text().splitlines()
+          for key in ("node", "way"):
+              i = next(i for i, line in enumerate(lines) if line.lstrip().startswith(f'"{key}['))
+              lines[i] = f'                "{key}[\\"$tagKey\\"=\\"$tagVal\\"](around:$radiusMeters,$centerLat,$centerLon);" +'
+          remote.write_text("\n".join(lines) + "\n")
+          detail = root / "ui/screens/TripDetailScreen.kt"
+          lines = detail.read_text().splitlines()
+          start = next(i for i, line in enumerate(lines) if '"Trip: ${preview.payload.trip.title}' in line)
+          end = next(i for i in range(start, len(lines)) if "if (preview.hasTripIdConflict)" in lines[i])
+          lines[start:end + 1] = [
+              '                    "Trip: ${preview.payload.trip.title}\\n" +',
+              '                        "Destinations: ${preview.payload.destinations.size}\\n" +',
+              '                        "Expenses: ${preview.payload.expenses.size}\\n" +',
+              '                        "Photos: ${preview.photoEntryCount}\\n" +',
+              '                        if (preview.hasTripIdConflict) "Note: Existing trip ID detected; will import as a safe copy." else ""'
+          ]
+          detail.write_text("\n".join(lines) + "\n")
+          PY
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
