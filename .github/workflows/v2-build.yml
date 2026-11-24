@@ -64,10 +64,6 @@ jobs:
         with:
           gradle-version: "8.10.2"
 
-      - name: Run JVM unit tests
-        working-directory: v2-source/triply-v2
-        run: gradle testDebugUnitTest --stacktrace
-
       - name: Build Debug APK
         working-directory: v2-source/triply-v2
         run: gradle assembleDebug --stacktrace
@@ -78,6 +74,10 @@ jobs:
           name: triply-v2-debug-apk
           path: v2-source/triply-v2/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
+
+      - name: Run JVM unit tests
+        working-directory: v2-source/triply-v2
+        run: gradle testDebugUnitTest --stacktrace
 
       - name: Upload Unit Test Report
         if: always()
